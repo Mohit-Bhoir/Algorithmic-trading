@@ -1,0 +1,135 @@
+import axios from 'axios';
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+
+// Create axios instance
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+# Add token to requests if it exists
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Handle token refresh on 401 with retry limit
+let isRefreshing = false;
+let refreshAttempts = 0;
+const MAX_REFRESH_ATTEMPTS = 1;
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (error.response?.status === 401 && !originalRequest._retry && refreshAttempts < MAX_REFRESH_ATTEMPTS) {
+      originalRequest._retry = true;
+      
+      if (isRefreshing) {
+        // Wait for the ongoing refresh to complete
+        return new Promise((resolve, reject) => {
+          setTimeout(() => {
+            const token = localStorage.getItem('access_token');
+            if (token) {
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+              resolve(api(originalRequest));
+            } else {
+              reject(error);
+            }
+          }, 1000);
+        });
+      }
+      
+      isRefreshing = true;
+      refreshAttempts++;
+      
+      const refreshToken = localStorage.getItem('refresh_token');
+      if (refreshToken) {
+        try {
+          const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {}, {
+            headers: { Authorization: `Bearer ${refreshToken}` }
+          });
+          
+          const { access_token } = response.data;
+          localStorage.setItem('access_token', access_token);
+          
+          originalRequest.headers.Authorization = `Bearer ${access_token}`;
+          isRefreshing = false;
+          refreshAttempts = 0;
+          return api(originalRequest);
+        } catch (refreshError) {
+          isRefreshing = false;
+          refreshAttempts = 0;
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
+          window.location.href = '/login';
+          return Promise.reject(refreshError);
+        }
+      }
+    }
+    
+    return Promise.reject(error);
+  }
+);
+
+// Auth API
+export const authAPI = {
+  register: (username, email, password) =>
+    api.post('/auth/register', { username, email, password }),
+  
+  login: (username, password) =>
+    api.post('/auth/login', { username, password }),
+  
+  logout: () => api.post('/auth/logout'),
+  
+  getCurrentUser: () => api.get('/auth/me'),
+};
+
+// Strategies API
+export const strategiesAPI = {
+  getAll: () => api.get('/strategies'),
+  
+  getById: (id) => api.get(`/strategies/${id}`),
+  
+  create: (strategy) => api.post('/strategies', strategy),
+  
+  update: (id, strategy) => api.put(`/strategies/${id}`, strategy),
+  
+  delete: (id) => api.delete(`/strategies/${id}`),
+};
+
+// Backtests API
+export const backtestsAPI = {
+  getAll: () => api.get('/backtests'),
+  
+  getById: (id) => api.get(`/backtests/${id}`),
+  
+  run: (backtestConfig) => api.post('/backtests', backtestConfig),
+  
+  delete: (id) => api.delete(`/backtests/${id}`),
+};
+
+// Subscriptions API
+export const subscriptionsAPI = {
+  getTiers: () => api.get('/subscriptions/tiers'),
+  
+  getCurrent: () => api.get('/subscriptions/current'),
+  
+  createCheckout: (tier) => api.post('/subscriptions/checkout', { tier }),
+  
+  cancel: () => api.post('/subscriptions/cancel'),
+};
+
+export default api;
