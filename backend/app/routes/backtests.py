@@ -97,7 +97,10 @@ def run_backtest():
         }), 201
         
     except Exception as e:
-        return jsonify({'error': f'Backtest failed: {str(e)}'}), 500
+        # Log the actual error for debugging
+        import logging
+        logging.error(f'Backtest failed for user {current_user_id}: {str(e)}')
+        return jsonify({'error': 'Backtest failed. Please check your parameters and try again.'}), 500
 
 @backtests_bp.route('/<int:backtest_id>', methods=['DELETE'])
 @jwt_required()

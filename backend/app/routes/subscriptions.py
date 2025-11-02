@@ -101,7 +101,10 @@ def create_checkout_session():
         }), 200
         
     except Exception as e:
-        return jsonify({'error': f'Failed to create checkout session: {str(e)}'}), 500
+        # Log the actual error for debugging
+        import logging
+        logging.error(f'Failed to create checkout for user {user.id}: {str(e)}')
+        return jsonify({'error': 'Failed to create checkout session. Please try again later.'}), 500
 
 @subscriptions_bp.route('/webhook', methods=['POST'])
 def stripe_webhook():
@@ -164,4 +167,7 @@ def cancel_subscription():
         return jsonify({'message': 'Subscription cancelled successfully'}), 200
         
     except Exception as e:
-        return jsonify({'error': f'Failed to cancel subscription: {str(e)}'}), 500
+        # Log the actual error for debugging
+        import logging
+        logging.error(f'Failed to cancel subscription for user {user.id}: {str(e)}')
+        return jsonify({'error': 'Failed to cancel subscription. Please contact support.'}), 500
