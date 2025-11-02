@@ -87,8 +87,8 @@ def create_checkout_session():
                 'quantity': 1,
             }],
             mode='subscription',
-            success_url=request.host_url + f'subscription/success?session_id={{CHECKOUT_SESSION_ID}}',
-            cancel_url=request.host_url + 'subscription/cancel',
+            success_url=f'{current_app.config["FRONTEND_URL"]}/subscription/success?session_id={{CHECKOUT_SESSION_ID}}',
+            cancel_url=f'{current_app.config["FRONTEND_URL"]}/subscription/cancel',
             metadata={
                 'user_id': user.id,
                 'tier': tier

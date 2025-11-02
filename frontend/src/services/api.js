@@ -10,7 +10,7 @@ const api = axios.create({
   },
 });
 
-// Add token to requests if it exists
+# Add token to requests if it exists
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('access_token');
@@ -24,14 +24,36 @@ api.interceptors.request.use(
   }
 );
 
-// Handle token refresh on 401
+// Handle token refresh on 401 with retry limit
+let isRefreshing = false;
+let refreshAttempts = 0;
+const MAX_REFRESH_ATTEMPTS = 1;
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && !originalRequest._retry && refreshAttempts < MAX_REFRESH_ATTEMPTS) {
       originalRequest._retry = true;
+      
+      if (isRefreshing) {
+        // Wait for the ongoing refresh to complete
+        return new Promise((resolve, reject) => {
+          setTimeout(() => {
+            const token = localStorage.getItem('access_token');
+            if (token) {
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+              resolve(api(originalRequest));
+            } else {
+              reject(error);
+            }
+          }, 1000);
+        });
+      }
+      
+      isRefreshing = true;
+      refreshAttempts++;
       
       const refreshToken = localStorage.getItem('refresh_token');
       if (refreshToken) {
@@ -44,8 +66,12 @@ api.interceptors.response.use(
           localStorage.setItem('access_token', access_token);
           
           originalRequest.headers.Authorization = `Bearer ${access_token}`;
+          isRefreshing = false;
+          refreshAttempts = 0;
           return api(originalRequest);
         } catch (refreshError) {
+          isRefreshing = false;
+          refreshAttempts = 0;
           localStorage.removeItem('access_token');
           localStorage.removeItem('refresh_token');
           window.location.href = '/login';

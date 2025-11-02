@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../..', 'Part5_Ma
 class BacktestService:
     """Service for running backtests on trading strategies"""
     
-    def run_backtest(self, strategy_type, parameters, symbol, start_date, end_date, transaction_cost=0.0001):
+    def run_backtest(self, strategy_type, parameters, symbol, start_date, end_date, transaction_cost=0.0001, max_results=500):
         """
         Run a backtest for a given strategy
         
@@ -24,19 +24,20 @@ class BacktestService:
             start_date: Start date (ISO format string)
             end_date: End date (ISO format string)
             transaction_cost: Transaction cost as decimal
+            max_results: Maximum number of results to return (default: 500)
             
         Returns:
             tuple: (performance, outperformance, results_data)
         """
         
         if strategy_type == 'SMA':
-            return self._run_sma_backtest(parameters, symbol, start_date, end_date, transaction_cost)
+            return self._run_sma_backtest(parameters, symbol, start_date, end_date, transaction_cost, max_results)
         elif strategy_type == 'MeanReversion':
-            return self._run_mean_reversion_backtest(parameters, symbol, start_date, end_date, transaction_cost)
+            return self._run_mean_reversion_backtest(parameters, symbol, start_date, end_date, transaction_cost, max_results)
         else:
             raise ValueError(f'Unsupported strategy type: {strategy_type}')
     
-    def _run_sma_backtest(self, parameters, symbol, start_date, end_date, transaction_cost):
+    def _run_sma_backtest(self, parameters, symbol, start_date, end_date, transaction_cost, max_results):
         """Run SMA strategy backtest"""
         from SMABacktester import SMABacktester
         
@@ -54,10 +55,10 @@ class BacktestService:
         
         performance, outperformance = backtester.test_strategy()
         
-        # Extract results data
+        # Extract results data with configurable limit
         results_data = None
         if backtester.results is not None:
-            results_df = backtester.results[['creturns', 'cstrategy']].tail(100)
+            results_df = backtester.results[['creturns', 'cstrategy']].tail(max_results)
             results_data = {
                 'dates': results_df.index.strftime('%Y-%m-%d %H:%M:%S').tolist(),
                 'buy_and_hold': results_df['creturns'].tolist(),
@@ -66,7 +67,7 @@ class BacktestService:
         
         return performance, outperformance, results_data
     
-    def _run_mean_reversion_backtest(self, parameters, symbol, start_date, end_date, transaction_cost):
+    def _run_mean_reversion_backtest(self, parameters, symbol, start_date, end_date, transaction_cost, max_results):
         """Run Mean Reversion strategy backtest"""
         from MeanRevBacktester import MeanRevBacktester
         
@@ -84,10 +85,10 @@ class BacktestService:
         
         performance, outperformance = backtester.test_strategy()
         
-        # Extract results data
+        # Extract results data with configurable limit
         results_data = None
         if backtester.results is not None:
-            results_df = backtester.results[['creturns', 'cstrategy']].tail(100)
+            results_df = backtester.results[['creturns', 'cstrategy']].tail(max_results)
             results_data = {
                 'dates': results_df.index.strftime('%Y-%m-%d %H:%M:%S').tolist(),
                 'buy_and_hold': results_df['creturns'].tolist(),
